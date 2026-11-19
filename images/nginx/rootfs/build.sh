@@ -18,7 +18,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export NGINX_VERSION=1.27.1
+export NGINX_VERSION=1.30.7
 
 # Check for recent changes: https://github.com/vision5/ngx_devel_kit/compare/v0.3.3...master
 export NDK_VERSION=v0.3.3
@@ -121,9 +121,12 @@ get_src()
 
   echo "Downloading $url"
 
-  curl -sSL "$url" -o "$f"
-  # TODO: Reenable checksum verification but make it smarter
-  # echo "$hash  $f" | sha256sum -c - || exit 10
+  curl -fsSL --connect-timeout 15 --max-time 180 --retry 3 \
+    --retry-all-errors "$url" -o "$f"
+  # Upstream left checksum verification disabled for secondary archives.
+  if [[ ${4-} == verify ]]; then
+    printf '%s  %s\n' "$hash" "$f" | sha256sum -c -
+  fi
   if [ ! -z "$dest" ]; then
         mkdir ${BUILD_PATH}/${dest}
         ARGS="-C ${BUILD_PATH}/${dest} --strip-components=1"
@@ -189,8 +192,8 @@ mkdir --verbose -p "$BUILD_PATH"
 cd "$BUILD_PATH"
 
 # download, verify and extract the source files
-get_src 66dc7081488811e9f925719e34d1b4504c2801c81dee2920e5452a86b11405ae \
-        "https://nginx.org/download/nginx-$NGINX_VERSION.tar.gz"
+get_src 2565b5c837050e958f70fb0f73c48e2bca4542ad349fd356f46fb0c72610bc6e \
+        "https://nginx.org/download/nginx-$NGINX_VERSION.tar.gz" "" verify
 
 get_src aa961eafb8317e0eb8da37eb6e2c9ff42267edd18b56947384e719b85188f58b \
         "https://github.com/vision5/ngx_devel_kit/archive/$NDK_VERSION.tar.gz" "ngx_devel_kit"
